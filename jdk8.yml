@@ -1,0 +1,21 @@
+---
+- hosts: target_host_inventory //(if we have inventory file servers, if not we can run on localhost)
+  become: yes
+  remote_user: ec2-user
+  become_user: root
+  tasks:
+  - name: Download Jenkins repository
+    get_url:
+      url:  http://download.oracle.com/otn-pub/java/jdk/8u60-b27/jdk-8u60-linux-x64.rpm
+      dest: /opt/jdk-8u60-linux-x64.rpm
+      mode: '0440'
+    
+  - name: yum update
+    yum:
+      name: '*'
+      state: latest
+
+  - name: installing java-1.8.0-openjdk
+    yum:
+      name: java-1.8.0-openjdk
+      state: latest
