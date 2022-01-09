@@ -1,0 +1,63 @@
+pileline{
+    agent any
+    tools{
+        maven 'maven3'
+    }
+    environment {
+        DOCKER_TAG = getVersion()
+    }
+    stages{
+        stage('checkout_git_repo'){
+            steps{
+                checkout([$class: 'GitSCM',branches:[[name: '*/master']],doGenrateSubmoduleConfigurations: false, extentions: [], submoduleCfg: [], userremoteconfigs: [[credenialsId:'469fc306-9d50-4257-803c-a9c8376145067',url:https://github.com/PAVAN211/PAVAN211]]]) 
+            }
+        }
+        stage('maven_package'){
+            steps{
+                sh "mvn clean package" 
+            }
+        }
+        stage('Docker Build'){
+            steps{
+                sh "docker build . -t pavan211/Airbus:$(DOCKER_TAG)"
+            }
+        }
+        stage('DockerHub Push'){
+            steps{
+                withCredentials([string(credenialsId: 'docker-hub', variable: 'dockerHubPwd')]){
+                    sh "docker login -u pavan211 -p ${dockerHubPwd}"
+                }
+                sh "docker push pavan211/Airbus:${DOCKER_TAG}"
+            }
+        }
+        stage('pulling_image'){
+            steps{
+               withCredentials([string(credenialsId: 'docker-hub', variable: 'dockerHubPwd')]){
+                   sh "docker pull pavan211/airbus:latest"
+                }
+               sh "docker run pavan211/airbus:latest -p 8000:8000 --name=airbus_web "
+            }
+        }
+        stage('notify slack'){
+            steps{
+               slackSend channel: 'jenkins', message: 'Airbus Deployment was successful' 
+            }
+        }
+        stage('deleting docker container'){
+            steps{
+               sh "docker rm airbus_web"
+               sh "docker rmi pavan211/airbus:latest"
+
+            }
+        }
+        stage('notify slack'){
+            steps{
+               slackSend channel: 'jenkins', message: 'Airbus Deployment was successful and removed docker container' 
+            }
+        }
+    }
+}
+def getVersion(){
+    def commiHash = sh label: '',returnStdout: true, script:'git rev-parse --short HEAD'
+    return commiHash
+}
